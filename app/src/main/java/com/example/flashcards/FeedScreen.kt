@@ -10,10 +10,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -39,18 +42,36 @@ private val cardColors =
 private val Ink = Color(0xFF17171B)
 
 @Composable
-fun FeedScreen(modifier: Modifier = Modifier) {
-  // Shuffled once per launch; remember holds the order steady across recompositions.
-  val cards = remember { sampleCards.shuffled() }
-
+fun FeedScreen(
+  cards: List<Card>,
+  initialIndex: Int,
+  onCurrentIndexChange: (Int) -> Unit,
+  onAddCard: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
   // A huge page count with modulo indexing makes the feed endless; starting in the middle, on a
-  // multiple of the deck size, means the first card is cards[0] and swiping up works immediately.
+  // multiple of the deck size, means the pager opens on cards[initialIndex] and swiping up or
+  // down both work straight away.
   val middle = Int.MAX_VALUE / 2
-  val pagerState = rememberPagerState(initialPage = middle - middle % cards.size) { Int.MAX_VALUE }
+  val start = middle - middle % cards.size + initialIndex.coerceIn(0, cards.lastIndex)
+  val pagerState = rememberPagerState(initialPage = start) { Int.MAX_VALUE }
 
-  VerticalPager(state = pagerState, modifier = modifier.fillMaxSize()) { page ->
-    val index = page % cards.size
-    CardPage(card = cards[index], background = cardColors[index % cardColors.size])
+  // Reported back so leaving for the add screen and returning lands on the same card.
+  LaunchedEffect(pagerState, cards.size) {
+    snapshotFlow { pagerState.currentPage }.collect { onCurrentIndexChange(it % cards.size) }
+  }
+
+  Box(modifier = modifier.fillMaxSize()) {
+    VerticalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+      val index = page % cards.size
+      CardPage(card = cards[index], background = cardColors[index % cardColors.size])
+    }
+    FloatingActionButton(
+      onClick = onAddCard,
+      modifier = Modifier.align(Alignment.BottomEnd).safeDrawingPadding().padding(24.dp),
+    ) {
+      Text(text = "+", style = MaterialTheme.typography.headlineMedium)
+    }
   }
 }
 
