@@ -164,6 +164,7 @@ class MainActivity : ComponentActivity() {
                       screen = Screen.Feed
                     },
                     onClose = { screen = Screen.Feed },
+                    settled = transition.currentState == EnterExitState.Visible,
                     modifier = Modifier.morph(editor, clipCorners = true),
                   )
                 Screen.Search ->

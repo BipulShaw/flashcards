@@ -53,6 +53,10 @@ private const val GIST_LIMIT = 140
 /**
  * Writing a card on the card itself: borderless fields sit directly on a surface in [tint], the
  * colour the new card will have in the feed.
+ *
+ * [settled] is false while the screen is still growing out of the button that opened it. The first
+ * field takes focus, and the keyboard opens, only once it is true: a field focused mid-transition
+ * is still down where the keyboard is about to appear.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +66,7 @@ fun AddCardScreen(
   onClose: () -> Unit,
   modifier: Modifier = Modifier,
   initialTerm: String = "",
+  settled: Boolean = true,
 ) {
   var term by remember { mutableStateOf(initialTerm) }
   var gist by remember { mutableStateOf("") }
@@ -75,7 +80,8 @@ fun AddCardScreen(
   val gistFocus = remember { FocusRequester() }
   val detailsFocus = remember { FocusRequester() }
   val keyboard = LocalSoftwareKeyboardController.current
-  LaunchedEffect(Unit) {
+  LaunchedEffect(settled) {
+    if (!settled) return@LaunchedEffect
     // Arriving with the term already written (from search's Create), carry on at the gist.
     (if (initialTerm.isBlank()) termFocus else gistFocus).requestFocus()
     keyboard?.show()
