@@ -198,11 +198,20 @@ private fun CardField(
   BasicTextField(
     value = value,
     onValueChange = { new ->
-      when {
-        onNext == null -> onValueChange(new)
-        // Only a line break was added: that was Enter.
-        '\n' in new && new.replace("\n", "") == value -> onNext()
-        else -> onValueChange(new.replace('\n', ' '))
+      if (onNext == null || '\n' !in new) {
+        onValueChange(new)
+      } else {
+        val flattened = new.replace("\n", "")
+        // Enter adds one line break, sometimes in the same edit as the keyboard committing a
+        // correction or a capital, so the rest of the text may change with it. More breaks, or one
+        // in the middle of changed text, came from a paste: those become spaces.
+        val pressedEnter = new.count { it == '\n' } == 1 && (flattened == value || new.endsWith('\n'))
+        if (pressedEnter) {
+          if (flattened != value) onValueChange(flattened)
+          onNext()
+        } else {
+          onValueChange(new.replace('\n', ' '))
+        }
       }
     },
     textStyle = style.copy(color = color),
