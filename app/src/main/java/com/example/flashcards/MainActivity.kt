@@ -88,6 +88,7 @@ class MainActivity : ComponentActivity() {
         // The editor's starting term: empty from the + button, the query from search's Create.
         var draftTerm by remember { mutableStateOf("") }
         var showSettings by remember { mutableStateOf(false) }
+        var linkPreviews by remember { mutableStateOf(settings.linkPreviews) }
 
         val snackbars = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
@@ -226,6 +227,7 @@ class MainActivity : ComponentActivity() {
                       onOpenSearch = { screen = Screen.Search },
                       onOpenSettings = { showSettings = true },
                       onDelete = deleteCard,
+                      showLinkPreviews = linkPreviews,
                       searchBarModifier = Modifier.morph(search),
                       fabModifier = Modifier.morph(editor),
                     )
@@ -243,6 +245,11 @@ class MainActivity : ComponentActivity() {
               onThemeModeChange = { mode ->
                 themeMode = mode
                 settings.themeMode = mode
+              },
+              linkPreviews = linkPreviews,
+              onLinkPreviewsChange = { on ->
+                linkPreviews = on
+                settings.linkPreviews = on
               },
               onDismiss = { showSettings = false },
             )

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -25,11 +26,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.flashcards.ui.theme.FlashcardsTheme
@@ -49,6 +55,7 @@ fun FeedScreen(
   onOpenSearch: () -> Unit,
   onOpenSettings: () -> Unit,
   onDelete: (Card) -> Unit,
+  showLinkPreviews: Boolean,
   modifier: Modifier = Modifier,
   searchBarModifier: Modifier = Modifier,
   fabModifier: Modifier = Modifier,
@@ -69,6 +76,7 @@ fun FeedScreen(
         initialIndex = initialIndex,
         onCurrentIndexChange = onCurrentIndexChange,
         onDelete = onDelete,
+        showLinkPreviews = showLinkPreviews,
       )
     }
     // Drawn after the pager so it floats above the card; the card's text starts below it. Shown on
@@ -98,6 +106,7 @@ private fun CardPager(
   initialIndex: Int,
   onCurrentIndexChange: (Int) -> Unit,
   onDelete: (Card) -> Unit,
+  showLinkPreviews: Boolean,
 ) {
   // A huge page count with modulo indexing makes the feed endless; starting in the middle, on a
   // multiple of the deck size, means the pager opens on cards[initialIndex] and swiping up or
@@ -115,14 +124,37 @@ private fun CardPager(
   VerticalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
     val index = page % cards.size
     val card = cards[index]
-    CardPage(card = card, tint = cardColors.tintAt(index), onDelete = { onDelete(card) })
+    CardPage(
+      card = card,
+      tint = cardColors.tintAt(index),
+      onDelete = { onDelete(card) },
+      showLinkPreviews = showLinkPreviews,
+    )
   }
 }
 
 @Composable
-private fun CardPage(card: Card, tint: Color, onDelete: () -> Unit, modifier: Modifier = Modifier) {
+private fun CardPage(
+  card: Card,
+  tint: Color,
+  onDelete: () -> Unit,
+  showLinkPreviews: Boolean,
+  modifier: Modifier = Modifier,
+) {
   val cardColors = FlashcardsTheme.cardColors
   val type = MaterialTheme.typography
+
+  // Links open in the browser; on a phone without one, a tap simply does nothing.
+  val uriHandler = LocalUriHandler.current
+  val openLink: (String) -> Unit = remember(uriHandler) { { url -> runCatching { uriHandler.openUri(url) } } }
+  val primary = MaterialTheme.colorScheme.primary
+  val linkStyles =
+    remember(primary) {
+      TextLinkStyles(
+        style = SpanStyle(color = primary, textDecoration = TextDecoration.Underline),
+        pressedStyle = SpanStyle(color = primary, background = primary.copy(alpha = 0.12f)),
+      )
+    }
 
   // The tint fills the whole page, including behind the system bars; only the text is inset.
   Box(modifier = modifier.fillMaxSize().background(tint)) {
@@ -138,14 +170,30 @@ private fun CardPage(card: Card, tint: Color, onDelete: () -> Unit, modifier: Mo
         Text(text = card.term, style = type.displaySmall, color = cardColors.ink)
         HorizontalDivider(color = cardColors.rule, modifier = Modifier.padding(vertical = 18.dp))
         Text(
-          text = card.gist,
+          text = remember(card.gist, linkStyles) { linkify(card.gist, linkStyles, openLink) },
           style = type.titleMedium,
           lineHeight = 28.sp,
           color = cardColors.inkMuted,
         )
         card.details?.let { details ->
           Spacer(Modifier.height(24.dp))
-          Text(text = details, style = type.bodyLarge, lineHeight = 26.sp, color = cardColors.inkFaint)
+          Text(
+            text = remember(details, linkStyles) { linkify(details, linkStyles, openLink) },
+            style = type.bodyLarge,
+            lineHeight = 26.sp,
+            color = cardColors.inkFaint,
+          )
+          if (showLinkPreviews) {
+            // A preview under the body for each link in it, up to two.
+            val urls = remember(details) { findLinks(details).map { it.url }.distinct().take(2) }
+            // Tapped, not selected: long-press selection stays on the card's own words.
+            DisableSelection {
+              for (url in urls) {
+                Spacer(Modifier.height(16.dp))
+                LinkPreviewCard(url = url, onOpen = openLink)
+              }
+            }
+          }
         }
       }
     }

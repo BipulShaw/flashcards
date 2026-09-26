@@ -36,6 +36,14 @@ class SettingsStore(private val context: Context) {
     }
 
   /**
+   * Whether links on cards show a preview fetched from the linked page. On unless turned off; off,
+   * the app makes no network requests at all.
+   */
+  var linkPreviews: Boolean
+    get() = prefs.getBoolean(LINK_PREVIEWS_KEY, true)
+    set(on) = prefs.edit { putBoolean(LINK_PREVIEWS_KEY, on) }
+
+  /**
    * On Android 12 and later, tells the system the app's own light or dark choice, so what the system
    * draws before the app's first frame (the launch screen) matches it instead of the phone's
    * setting. Earlier versions have no per-app setting: there the launch screen follows the phone,
@@ -56,5 +64,6 @@ class SettingsStore(private val context: Context) {
 
   private companion object {
     const val THEME_KEY = "theme"
+    const val LINK_PREVIEWS_KEY = "link_previews"
   }
 }
