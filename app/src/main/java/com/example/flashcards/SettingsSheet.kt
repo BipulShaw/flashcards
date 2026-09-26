@@ -84,6 +84,13 @@ fun SettingsSheet(
         }
         Switch(checked = linkPreviews, onCheckedChange = null)
       }
+      Spacer(Modifier.height(28.dp))
+      // Which build this is, for anyone reporting a problem.
+      Text(
+        text = "Flashcards ${BuildConfig.VERSION_NAME}",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
     }
   }
 }

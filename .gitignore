@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+# Signing keys never belong in the repository.
+*.jks
+*.keystore
+# Release APKs for uploading.
+/dist

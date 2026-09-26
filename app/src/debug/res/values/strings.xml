@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tells the development build apart from the public app when both are installed. -->
+    <string name="app_name">Flashcards Dev</string>
+</resources>

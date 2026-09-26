@@ -8,17 +8,35 @@ android {
     namespace = "com.example.flashcards"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.example.flashcards"
+        // The public app's permanent identity: an update must keep it (and the signing key) to
+        // install over an earlier version.
+        applicationId = "io.github.bipulshaw.flashcards"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
+    }
+
+    // The release key stays out of the repository. Its location and passwords come from
+    // ~/.gradle/gradle.properties; without them, release builds come out unsigned.
+    val releaseStoreFile = providers.gradleProperty("flashcards.releaseStoreFile").orNull
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = providers.gradleProperty("flashcards.releaseStorePassword").get()
+                keyAlias = providers.gradleProperty("flashcards.releaseKeyAlias").get()
+                keyPassword = providers.gradleProperty("flashcards.releaseKeyPassword").get()
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
     compileOptions {
@@ -28,7 +46,7 @@ android {
     buildFeatures {
       compose = true
       aidl = false
-      buildConfig = false
+      buildConfig = true
       shaders = false
     }
 
@@ -41,6 +59,14 @@ android {
 
 kotlin {
     jvmToolchain(17)
+}
+
+// Debug builds keep the id the app had before its public release, so the development copy that's
+// already installed, with its cards, keeps updating in place beside the public app.
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.applicationId.set("com.example.flashcards")
+    }
 }
 
 dependencies {
