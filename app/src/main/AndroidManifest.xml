@@ -10,10 +10,13 @@
         android:theme="@style/Theme.Flashcards">
         <!-- adjustResize is only read from an activity (on <application> it is silently ignored and
              the window falls back to panning). With it, the system never slides the window up for the
-             keyboard; the screens keep their fields clear of it themselves with imePadding. -->
+             keyboard; the screens keep their fields clear of it themselves with imePadding.
+             uiMode is handled in place: changing the theme in settings updates the app's night mode,
+             and restarting the activity for it would reshuffle the deck and close settings. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:configChanges="uiMode"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

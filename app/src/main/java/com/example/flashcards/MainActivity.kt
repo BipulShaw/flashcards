@@ -1,7 +1,10 @@
 package com.example.flashcards
 
+import android.content.res.Configuration
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -15,6 +18,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -23,6 +27,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -56,19 +61,33 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
-    // Transparent system bars whose icons follow the system theme, as the app itself does.
-    enableEdgeToEdge()
+    val settings = SettingsStore(applicationContext)
+    // Re-shared every start, so the system's copy (Android 12+) can't drift from the saved choice.
+    settings.shareThemeWithSystem()
+    val phoneDark =
+      (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+    // Edge to edge from the first frame, with bar icons for the theme the app is about to draw.
+    styleSystemBars(dark = settings.themeMode.isDark(phoneDark))
 
     val store = CardStore(applicationContext)
 
     setContent {
-      FlashcardsTheme {
+      var themeMode by remember { mutableStateOf(settings.themeMode) }
+      val darkTheme = themeMode.isDark(systemDark = isSystemInDarkTheme())
+      // The bar icons follow the app's theme, which can differ from the phone's.
+      DisposableEffect(darkTheme) {
+        styleSystemBars(darkTheme)
+        onDispose {}
+      }
+
+      FlashcardsTheme(darkTheme = darkTheme) {
         // Shuffled once per launch. A new card is appended, so it lands at the end of the deck.
         var cards by remember { mutableStateOf(store.load().shuffled()) }
         var currentIndex by remember { mutableIntStateOf(0) }
         var screen by remember { mutableStateOf(Screen.Feed) }
         // The editor's starting term: empty from the + button, the query from search's Create.
         var draftTerm by remember { mutableStateOf("") }
+        var showSettings by remember { mutableStateOf(false) }
 
         val snackbars = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
@@ -205,6 +224,7 @@ class MainActivity : ComponentActivity() {
                         screen = Screen.Add
                       },
                       onOpenSearch = { screen = Screen.Search },
+                      onOpenSettings = { showSettings = true },
                       onDelete = deleteCard,
                       searchBarModifier = Modifier.morph(search),
                       fabModifier = Modifier.morph(editor),
@@ -217,8 +237,24 @@ class MainActivity : ComponentActivity() {
             hostState = snackbars,
             modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding(),
           )
+          if (showSettings) {
+            SettingsSheet(
+              themeMode = themeMode,
+              onThemeModeChange = { mode ->
+                themeMode = mode
+                settings.themeMode = mode
+              },
+              onDismiss = { showSettings = false },
+            )
+          }
         }
       }
     }
   }
+}
+
+/** Transparent system bars, with dark icons over a light theme and light icons over a dark one. */
+private fun ComponentActivity.styleSystemBars(dark: Boolean) {
+  val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
+  enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
 }

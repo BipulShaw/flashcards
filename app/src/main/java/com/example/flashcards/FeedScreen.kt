@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -27,10 +25,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,7 +36,9 @@ import com.example.flashcards.ui.theme.FlashcardsTheme
 
 /**
  * The endless feed. [searchBarModifier] and [fabModifier] let the caller attach the transitions
- * that expand the search bar into search and the + button into the editor.
+ * that expand the search bar into search and the + button into the editor. Controls for the whole
+ * app float at the edges: search and settings at the top, + at the bottom. A card's own control,
+ * delete, sits on the card.
  */
 @Composable
 fun FeedScreen(
@@ -51,6 +47,7 @@ fun FeedScreen(
   onCurrentIndexChange: (Int) -> Unit,
   onAddCard: () -> Unit,
   onOpenSearch: () -> Unit,
+  onOpenSettings: () -> Unit,
   onDelete: (Card) -> Unit,
   modifier: Modifier = Modifier,
   searchBarModifier: Modifier = Modifier,
@@ -59,7 +56,7 @@ fun FeedScreen(
   Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
     if (cards.isEmpty()) {
       // The pager is not composed at all on an empty deck, so its modulo indexing can never
-      // divide by zero. Only the button to add a card remains.
+      // divide by zero.
       Text(
         text = "No cards yet",
         style = MaterialTheme.typography.headlineSmall,
@@ -73,17 +70,19 @@ fun FeedScreen(
         onCurrentIndexChange = onCurrentIndexChange,
         onDelete = onDelete,
       )
-      // Drawn after the pager so it floats above the card; the card's text starts below it.
-      CollapsedSearchBar(
-        onClick = onOpenSearch,
-        modifier =
-          Modifier.align(Alignment.TopStart)
-            .safeDrawingPadding()
-            .padding(start = 16.dp, top = 8.dp, end = 64.dp)
-            .then(searchBarModifier)
-            .fillMaxWidth(),
-      )
     }
+    // Drawn after the pager so it floats above the card; the card's text starts below it. Shown on
+    // an empty deck as well, since it's also the way into settings.
+    CollapsedSearchBar(
+      onClick = onOpenSearch,
+      onOpenSettings = onOpenSettings,
+      modifier =
+        Modifier.align(Alignment.TopStart)
+          .safeDrawingPadding()
+          .padding(start = 16.dp, top = 8.dp, end = 16.dp)
+          .then(searchBarModifier)
+          .fillMaxWidth(),
+    )
     FloatingActionButton(
       onClick = onAddCard,
       modifier = Modifier.align(Alignment.BottomEnd).safeDrawingPadding().padding(24.dp).then(fabModifier),
@@ -133,8 +132,8 @@ private fun CardPage(card: Card, tint: Color, onDelete: () -> Unit, modifier: Mo
       Column(
         modifier =
           Modifier.safeDrawingPadding()
-            // Top padding clears the search bar and the menu button floating above.
-            .padding(start = 28.dp, end = 28.dp, top = 88.dp, bottom = 36.dp)
+            // Clears the search bar floating above, and the delete and + buttons below.
+            .padding(start = 28.dp, end = 28.dp, top = 88.dp, bottom = 96.dp)
       ) {
         Text(text = card.term, style = type.displaySmall, color = cardColors.ink)
         HorizontalDivider(color = cardColors.rule, modifier = Modifier.padding(vertical = 18.dp))
@@ -150,48 +149,35 @@ private fun CardPage(card: Card, tint: Color, onDelete: () -> Unit, modifier: Mo
         }
       }
     }
-    CardMenu(
-      onDelete = onDelete,
-      modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(top = 12.dp, end = 8.dp),
-    )
-  }
-}
-
-/** Tap target for deleting a card. A tap, not a long-press, which belongs to text selection. */
-@Composable
-private fun CardMenu(onDelete: () -> Unit, modifier: Modifier = Modifier) {
-  var open by remember { mutableStateOf(false) }
-  Box(modifier = modifier) {
-    IconButton(onClick = { open = true }) {
+    // Part of the page, so it travels with its card, level with the + button across the bottom.
+    // One tap, not a long-press (which selects text): the snackbar that follows offers Undo.
+    IconButton(
+      onClick = onDelete,
+      modifier = Modifier.align(Alignment.BottomStart).safeDrawingPadding().padding(start = 16.dp, bottom = 28.dp),
+    ) {
       Icon(
-        painterResource(R.drawable.ic_more_vert),
-        contentDescription = "Card options",
-        tint = FlashcardsTheme.cardColors.inkFaint,
-      )
-    }
-    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-      DropdownMenuItem(
-        text = { Text("Delete") },
-        onClick = {
-          open = false
-          onDelete()
-        },
+        painterResource(R.drawable.ic_delete),
+        contentDescription = "Delete card",
+        tint = cardColors.inkFaint,
       )
     }
   }
 }
 
-/** Looks like the Material search bar at rest; tapping it opens the full search screen. */
+/**
+ * Looks like the Material search bar at rest: tapping it opens the full search screen, and its
+ * trailing gear opens settings.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CollapsedSearchBar(onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun CollapsedSearchBar(onClick: () -> Unit, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
   Surface(
     onClick = onClick,
     shape = SearchBarDefaults.inputFieldShape,
     color = SearchBarDefaults.colors().containerColor,
     modifier = modifier.height(SearchBarDefaults.InputFieldHeight),
   ) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp, end = 4.dp)) {
       Icon(
         painterResource(R.drawable.ic_search),
         contentDescription = null,
@@ -202,7 +188,15 @@ private fun CollapsedSearchBar(onClick: () -> Unit, modifier: Modifier = Modifie
         text = "Search cards",
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.weight(1f),
       )
+      IconButton(onClick = onOpenSettings) {
+        Icon(
+          painterResource(R.drawable.ic_settings),
+          contentDescription = "Settings",
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
     }
   }
 }
